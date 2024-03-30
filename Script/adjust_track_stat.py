@@ -202,7 +202,6 @@ def set_rank_field(data_field, type_field):
 	return rank_field
 
 
-
 def move(i, j, data_field, type_field, id_field):
 	di = 0
 	dj = 0
@@ -256,22 +255,51 @@ def make_segment(length, curve_x, curve_y):
 			pass
 			
 	return segment_x, segment_y
+	
+	
+def find_orient(length, curve_x, curve_y, min_angle, max_angle, orient_field):
+	orient_field = orient_field
+	oriented_curve = np.zeros((curve_x.shape[0], curve_x.shape[1])) + 5
+	for i in range(curve_x.shape[0]):
+		j_max = np.max(np.nonzero(curve_x[i, :]))
+		for j in range(j_max + 1):
+			if (j + 1) % length == 0:
+				x = curve_x[i, j] - curve_x[i, j - length + 1]
+				y = curve_y[i, j] - curve_y[i, j - length + 1]
+				if (x*0 + y*1) / (sqrt(x*x + y*y)) > 1:
+					alpha = math.acos(1)
+				else:
+					if (x*0 + y*1) / (sqrt(x*x + y*y)) < -1:
+						alpha = math.acos(-1)
+					else:
+						alpha = math.acos((x*0 + y*1) / (sqrt(x*x + y*y)))
+				for jj in range(length):
+					if (abs(alpha) >= min_angle and abs(alpha) <= max_angle) or (abs(alpha) >= math.pi - max_angle and abs(alpha) <= math.pi - min_angle):
+						oriented_curve[i, j - length + jj + 1] = alpha
+						orient_field[int(curve_y[i, j - length + jj + 1]) * x_max + int(curve_x[i, j - length + jj + 1])] = 1
+			else:
+				pass
+	
+	return oriented_curve, orient_field
 		
 
-def radius(segment_x, segment_y, window, blured_field):
+def radius(curve_x, curve_y, window, blured_field, curve_field, oriented_curve):
+	curve_field = curve_field
 	radii = np.array([])
 	curvat = np.array([])
-	heights = np.array([])
-	for i in range(segment_x.shape[0]):
-		j_max = np.max(np.nonzero(segment_x[i, :]))
+	heights_orient = np.array([])
+	radii_orient = np.array([])
+	curvat_orient = np.array([])
+	for i in range(curve_x.shape[0]):
+		j_max = np.max(np.nonzero(curve_x[i, :]))
 		for j in range(j_max + 1):
 			if j >= window - 1:
-				x1 = segment_x[i, j] - segment_x[i, j - window // 2]
-				y1 = segment_y[i, j] - segment_y[i, j - window // 2]
-				x2 = segment_x[i, j - window // 2] - segment_x[i, j - window + 1]
-				y2 = segment_y[i, j - window // 2] - segment_y[i, j - window + 1]
-				x3 = segment_x[i, j] - segment_x[i, j - window + 1]
-				y3 = segment_y[i, j] - segment_y[i, j - window + 1]
+				x1 = curve_x[i, j] - curve_x[i, j - window // 2]
+				y1 = curve_y[i, j] - curve_y[i, j - window // 2]
+				x2 = curve_x[i, j - window // 2] - curve_x[i, j - window + 1]
+				y2 = curve_y[i, j - window // 2] - curve_y[i, j - window + 1]
+				x3 = curve_x[i, j] - curve_x[i, j - window + 1]
+				y3 = curve_y[i, j] - curve_y[i, j - window + 1]
 				if (x1*x2 + y1*y2) / (sqrt(x1*x1 + y1*y1)*sqrt(x2*x2 + y2*y2)) > 1:
 					alpha = math.acos(1)
 				else:
@@ -283,15 +311,20 @@ def radius(segment_x, segment_y, window, blured_field):
 					radius = sqrt(x3*x3 + y3*y3) / (2 * math.sin(alpha)) * 5000 / 512
 					radii = np.append(radii, ([radius]), axis = 0)
 					curvat = np.append(curvat, ([1/radius]), axis = 0)
-					height_value = blured_field[int(segment_y[i, j]) * x_max + int(segment_x[i, j])]
-					heights = np.append(heights, ([height_value]), axis = 0)
-					curve_field[int(segment_y[i, j - 1]) * x_max + int(segment_x[i, j - 1])] = radius
+					if oriented_curve[i, j - window // 2] != 5:
+						height_value = blured_field[int(curve_y[i, j]) * x_max + int(curve_x[i, j])]
+						heights_orient = np.append(heights_orient, ([height_value]), axis = 0)
+						radii_orient = np.append(radii_orient, ([radius]), axis = 0)
+						curvat_orient = np.append(curvat_orient, ([1/radius]), axis = 0)
+					else:
+						pass
+					curve_field[int(curve_y[i, j - 1]) * x_max + int(curve_x[i, j - 1])] = radius
 				else:
 					pass
 			else:
 				pass
 				
-	return radii, curvat, heights, curve_field
+	return radii, curvat, heights, curve_field, heights_orient, radii_orient, curvat_orient
 		
 
 def density(data_field):
@@ -320,15 +353,16 @@ type_field = data_field.duplicate() # 1 - normal, 2 - start, 3 - triple, 4 cross
 id_field = data_field.duplicate()
 rank_field = data_field.duplicate()
 curve_field = data_field.duplicate()
+orient_field = data_field.duplicate()
 curve_id = 0
 
 id_field.multiply(0)
 curve_field.multiply(0)
+orient_field.multiply(0)
 type_field = set_type_field(data_field)
 rank_field = set_rank_field(data_field, type_field)
 start = find_start(type_field)
 stop_list = np.array([0])
-
 
 while True:
 	if start.shape[0] == stop_list.shape[0]:
@@ -395,22 +429,25 @@ for i in range(1, curve_x.shape[0]):
 curve_x = np.delete(curve_x, to_remove, 0)
 curve_y = np.delete(curve_y, to_remove, 0)
 
-# Make segmentation
-(segment_x, segment_y) = make_segment(1, curve_x, curve_y)
+# Find orientations
+(oriented_curve, orient_field) = find_orient(10, curve_x, curve_y, 0, 3.14 / 7, orient_field)
 
 # Measure radii of curvature
-(radii, curvat, heights, curve_field) = radius(segment_x, segment_y, 30, blured_field)
+(radii, curvat, heights, curve_field, heights_orient, radii_orient, curvat_orient) = radius(curve_x, curve_y, 30, blured_field, curve_field, oriented_curve)
 (radii_hyst, radii_bin) = np.histogram(radii, bins=20, range = (0, 1000))
 (curvat_hyst, curvat_bin) = np.histogram(curvat, bins=20, range = (0, 0.03))
 
-print(d)
-print(curve_x.shape[0])
-print(list(radii_hyst))
-print(list(radii_bin))
-print(list(curvat_hyst))
-print(list(curvat_bin))
+#print(d)
+#print(curve_x.shape[0])
+#print(list(radii_hyst))
+#print(list(radii_bin))
+#print(list(curvat_hyst))
+#print(list(curvat_bin))
+for i in range(heights_orient.shape[0]):
+	print(heights_orient[i], curvat_orient[i])
 
 for i in range(1, y_max - 1):			
 	for j in range(1, x_max - 1):
-		data_field[i * x_max + j] = data_field[i * x_max + j] #+ curve_field[i * x_max + j]		
+		data_field[i * x_max + j] = orient_field[i * x_max + j] #+ curve_field[i * x_max + j]
+				
 data_field.data_changed()
