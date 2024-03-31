@@ -14,6 +14,8 @@ settings['/module/scars_remove/threshold_high'] = 0.666
 settings['/module/scars_remove/threshold_low'] = 0.25
 settings['/module/scars_remove/type'] = 5
 settings['/module/scars_remove/update'] = False
+gwy.gwy_process_func_run('scars_remove', container, gwy.RUN_IMMEDIATE)
+gwy.gwy_process_func_run('scars_remove', container, gwy.RUN_IMMEDIATE)
 gwy.gwy_process_func_run('scars_remove', container, gwy.RUN_IMMEDIATE)	
 
 # Align rows
@@ -34,13 +36,15 @@ settings['/module/polylevel/masking'] = 2
 settings['/module/polylevel/max_degree'] = 3
 settings['/module/polylevel/row_degree'] = 3
 settings['/module/polylevel/same_degree'] = True
-gwy.gwy_process_func_run('polylevel', container, gwy.RUN_IMMEDIATE)	
+gwy.gwy_process_func_run('polylevel', container, gwy.RUN_IMMEDIATE)
 
 # Gaussian blurring
 for container in gwy.gwy_app_data_browser_get_containers():	
 	container['/0/data'].filter_gaussian(2)
+	zmin, zmax = container['/0/data'].get_min_max()
 	mask = container['/0/data'].duplicate()
-	mask.grains_mark_height(mask, 30, False)
+	threshval = (abs(zmin) + 0.2 * zmax) / (zmax - zmin) * 100
+	mask.grains_mark_height(mask, threshval, False)
 	mask.grains_thin()
 	gwy_app_data_browser_add_data_field(mask, container, True)
 	
@@ -241,22 +245,6 @@ def move(i, j, data_field, type_field, id_field):
 	return 0, 0				
 			
 							
-def make_segment(length, curve_x, curve_y):
-	segment_x = np.zeros([curve_x.shape[0], curve_x.shape[1]])
-	segment_y = np.zeros([curve_x.shape[0], curve_x.shape[1]])
-	jj = 0
-	for j in range(curve_x.shape[1]):
-		if j % length == 0:
-			for i in range(curve_x.shape[0]):
-				segment_x[i, jj] = curve_x[i, j]
-				segment_y[i, jj] = curve_y[i, j]
-			jj = jj + 1
-		else:
-			pass
-			
-	return segment_x, segment_y
-	
-	
 def find_orient(length, curve_x, curve_y, min_angle, max_angle, orient_field):
 	orient_field = orient_field
 	oriented_curve = np.zeros((curve_x.shape[0], curve_x.shape[1])) + 5
@@ -430,7 +418,7 @@ curve_x = np.delete(curve_x, to_remove, 0)
 curve_y = np.delete(curve_y, to_remove, 0)
 
 # Find orientations
-(oriented_curve, orient_field) = find_orient(10, curve_x, curve_y, 0, 3.14 / 7, orient_field)
+(oriented_curve, orient_field) = find_orient(15, curve_x, curve_y, 0 , math.pi / 12, orient_field)
 
 # Measure radii of curvature
 (radii, curvat, heights, curve_field, heights_orient, radii_orient, curvat_orient) = radius(curve_x, curve_y, 30, blured_field, curve_field, oriented_curve)
@@ -444,10 +432,13 @@ curve_y = np.delete(curve_y, to_remove, 0)
 #print(list(curvat_hyst))
 #print(list(curvat_bin))
 for i in range(heights_orient.shape[0]):
-	print(heights_orient[i], curvat_orient[i])
+	print heights_orient[i], curvat_orient[i]
 
-for i in range(1, y_max - 1):			
-	for j in range(1, x_max - 1):
-		data_field[i * x_max + j] = orient_field[i * x_max + j] #+ curve_field[i * x_max + j]
+for i in range(y_max):			
+	for j in range(x_max):
+		if (i == 0) or (i == y_max - 2) or (j == x_max - 2) or (j == x_max - 2):
+			data_field[i * x_max + j] = 0
+		else:
+			data_field[i * x_max + j] = orient_field[i * x_max + j] #+ curve_field[i * x_max + j]
 				
 data_field.data_changed()
