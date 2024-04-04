@@ -43,7 +43,7 @@ for container in gwy.gwy_app_data_browser_get_containers():
 	container['/0/data'].filter_gaussian(2)
 	zmin, zmax = container['/0/data'].get_min_max()
 	mask = container['/0/data'].duplicate()
-	threshval = (abs(zmin) + 0.2 * zmax) / (zmax - zmin) * 100
+	threshval = (abs(zmin) + 0.15 * zmax) / (zmax - zmin) * 100
 	mask.grains_mark_height(mask, threshval, False)
 	mask.grains_thin()
 	gwy_app_data_browser_add_data_field(mask, container, True)
@@ -300,7 +300,7 @@ def radius(curve_x, curve_y, window, blured_field, curve_field, oriented_curve):
 					radii = np.append(radii, ([radius]), axis = 0)
 					curvat = np.append(curvat, ([1/radius]), axis = 0)
 					if oriented_curve[i, j - window // 2] != 5:
-						height_value = blured_field[int(curve_y[i, j]) * x_max + int(curve_x[i, j])]
+						height_value = blured_field[int(curve_y[i, j]) * x_max + int(curve_x[i, j])] * 1e+9
 						heights_orient = np.append(heights_orient, ([height_value]), axis = 0)
 						radii_orient = np.append(radii_orient, ([radius]), axis = 0)
 						curvat_orient = np.append(curvat_orient, ([1/radius]), axis = 0)
@@ -312,7 +312,7 @@ def radius(curve_x, curve_y, window, blured_field, curve_field, oriented_curve):
 			else:
 				pass
 				
-	return radii, curvat, heights, curve_field, heights_orient, radii_orient, curvat_orient
+	return radii, curvat, curve_field, heights_orient, radii_orient, curvat_orient
 		
 
 def density(data_field):
@@ -421,16 +421,19 @@ curve_y = np.delete(curve_y, to_remove, 0)
 (oriented_curve, orient_field) = find_orient(15, curve_x, curve_y, 0 , math.pi / 12, orient_field)
 
 # Measure radii of curvature
-(radii, curvat, heights, curve_field, heights_orient, radii_orient, curvat_orient) = radius(curve_x, curve_y, 30, blured_field, curve_field, oriented_curve)
+(radii, curvat, curve_field, heights_orient, radii_orient, curvat_orient) = radius(curve_x, curve_y, 30, blured_field, curve_field, oriented_curve)
 (radii_hyst, radii_bin) = np.histogram(radii, bins=20, range = (0, 1000))
 (curvat_hyst, curvat_bin) = np.histogram(curvat, bins=20, range = (0, 0.03))
+(heights_hyst, heights_bin) = np.histogram(heights_orient, bins=20, range = (0, 30))
 
 #print(d)
 #print(curve_x.shape[0])
 #print(list(radii_hyst))
 #print(list(radii_bin))
-#print(list(curvat_hyst))
-#print(list(curvat_bin))
+print(list(curvat_hyst))
+print(list(curvat_bin))
+print(list(heights_hyst))
+print(list(heights_bin))
 for i in range(heights_orient.shape[0]):
 	print heights_orient[i], curvat_orient[i]
 
