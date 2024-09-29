@@ -4,12 +4,7 @@ import codecs
 import math
 import copy
 from math import sqrt
-
-
-#with codecs.open('mask_image_2023-11-28_14-38-59.txt', encoding='utf-8-sig') as f:
-#    data_field = np.loadtxt(f)
-#plt.matshow(data_field)
-#plt.show()
+import cv2
 
 
 def is_start(i, j, type_field):
@@ -203,111 +198,115 @@ def move(i, j, data_field, type_field, id_field, rank_field):
 					continue
 					
 	return 0, 0				
-			
-							
-def find_orient(length, curve_x, curve_y, min_angle, max_angle, orient_field_arg):
-	orient_field = copy.deepcopy(orient_field_arg)
-	oriented_curve = np.zeros((curve_x.shape[0], curve_x.shape[1])) + 5
-	for i in range(curve_x.shape[0]):
-		j_max = np.max(np.nonzero(curve_x[i, :]))
-		for j in range(j_max + 1):
-			if (j + 1) % length == 0:
-				x = curve_x[i, j] - curve_x[i, j - length + 1]
-				y = curve_y[i, j] - curve_y[i, j - length + 1]
-				if (x*0 + y*1) / (sqrt(x*x + y*y)) > 1:
-					alpha = math.acos(1)
-				else:
-					if (x*0 + y*1) / (sqrt(x*x + y*y)) < -1:
-						alpha = math.acos(-1)
-					else:
-						alpha = math.acos((x*0 + y*1) / (sqrt(x*x + y*y)))
-				for jj in range(length):
-					if (abs(alpha) >= min_angle and abs(alpha) <= max_angle) or (abs(alpha) >= math.pi - max_angle and abs(alpha) <= math.pi - min_angle):
-						oriented_curve[i, j - length + jj + 1] = alpha
-						orient_field[int(curve_y[i, j - length + jj + 1]) * x_max + int(curve_x[i, j - length + jj + 1])] = 1
-			else:
-				pass
-	
-	return oriented_curve, orient_field
 		
 
-def radius(curve_x, curve_y, window, blured_field, curve_field_arg, oriented_curve):
-	curve_field = copy.deepcopy(curve_field_arg)
-	radii = np.array([])
-	curvat = np.array([])
-	heights_orient = np.array([])
-	radii_orient = np.array([])
-	curvat_orient = np.array([])
-	for i in range(curve_x.shape[0]):
-		j_max = np.max(np.nonzero(curve_x[i, :]))
-		for j in range(j_max + 1):
-			if j >= window - 1:
-				x1 = curve_x[i, j] - curve_x[i, j - window // 2]
-				y1 = curve_y[i, j] - curve_y[i, j - window // 2]
-				x2 = curve_x[i, j - window // 2] - curve_x[i, j - window + 1]
-				y2 = curve_y[i, j - window // 2] - curve_y[i, j - window + 1]
-				x3 = curve_x[i, j] - curve_x[i, j - window + 1]
-				y3 = curve_y[i, j] - curve_y[i, j - window + 1]
-				if (x1*x2 + y1*y2) / (sqrt(x1*x1 + y1*y1)*sqrt(x2*x2 + y2*y2)) > 1:
-					alpha = math.acos(1)
+def track():
+	global stop_list
+	global curve_id
+	global curve_x, curve_y
+	global data_field, type_field, id_field, rank_field
+	while True:
+		if start.shape[0] == stop_list.shape[0]:
+			break
+		else:
+			for n in range(1, start.shape[0]):
+				if any(stop_list == n):
+					pass
 				else:
-					if (x1*x2 + y1*y2) / (sqrt(x1*x1 + y1*y1)*sqrt(x2*x2 + y2*y2)) < -1:
-						alpha = math.acos(-1)
-					else:
-						alpha = math.acos((x1*x2 + y1*y2) / (sqrt(x1*x1 + y1*y1)*sqrt(x2*x2 + y2*y2)))
-				if alpha != 0:
-					radius = sqrt(x3*x3 + y3*y3) / (2 * math.sin(alpha)) * 5000 / 512
-					radii = np.append(radii, ([radius]), axis = 0)
-					curvat = np.append(curvat, ([1/radius]), axis = 0)
-					if oriented_curve[i, j - window // 2] != 5:
-						height_value = blured_field[int(curve_y[i, j]) * x_max + int(curve_x[i, j])] * 1e+9
-						heights_orient = np.append(heights_orient, ([height_value]), axis = 0)
-						radii_orient = np.append(radii_orient, ([radius]), axis = 0)
-						curvat_orient = np.append(curvat_orient, ([1/radius]), axis = 0)
+					curve_id = curve_id + 1
+					last_elem = 0
+					temp_i = start[n, 0]
+					temp_j = start[n, 1]
+					temp_index = temp_i * x_max + temp_j
+					id_field[temp_index] = curve_id
+					rank_field[temp_index] = rank_field[temp_index] - 1 
+					curve_x = np.append(curve_x, np.zeros((1, 2000)), axis = 0)
+					curve_y = np.append(curve_y, np.zeros((1, 2000)), axis = 0)
+					curve_x[curve_id, last_elem] = temp_j
+					curve_y[curve_id, last_elem] = temp_i
+					if rank_field[temp_index] == 0:
+						stop_list = np.append(stop_list, ([n]), axis = 0)
 					else:
 						pass
-					curve_field[int(curve_y[i, j - 1]) * x_max + int(curve_x[i, j - 1])] = radius
-				else:
-					pass
-			else:
-				pass
 				
-	return radii, curvat, curve_field, heights_orient, radii_orient, curvat_orient
-		
+					while True:
+						if temp_i == 0 or temp_i == y_max - 1 or temp_j == 0 or temp_j == x_max - 1:
+							break
+						else:	
+							(di, dj) = move(temp_i, temp_j, data_field, type_field, id_field, rank_field)
+							if (di == 0) and (dj == 0):
+								break
+							else:
+								temp_i = temp_i + di
+								temp_j = temp_j + dj
+								last_elem = np.max(np.nonzero(curve_x[curve_id, :])) + 1
+								temp_index = temp_i * x_max + temp_j
+								id_field[temp_index] = curve_id
+								rank_field[temp_index] = rank_field[temp_index] - 1
+								if (temp_i != 0) & (temp_j != 0) & ((temp_i - y_max + 1) != 0) & ((temp_j - x_max + 1) != 0):
+									curve_x[curve_id, last_elem] = temp_j
+									curve_y[curve_id, last_elem] = temp_i
+								is_end = (type_field[temp_index] == 2) or (type_field[temp_index] == 3) or (type_field[temp_index] == 4)
+								if is_end and rank_field[temp_index] == 0:
+									stop_list_value = np.where((start[:, 0] == temp_i) & (start[:, 1] == temp_j))[0]
+									stop_list = np.append(stop_list, stop_list_value, axis = 0)
+									break
+								else:
+									if is_end:
+										break
+									else:
+										pass
+	return curve_x, curve_y							
+				
 
-def density(data_field):
-	density = 0
-	for i in range(1, y_max - 1):
-		for j in range(1, x_max - 1):
-			if data_field[i * x_max + j] == 1:
-				density = density + 1
-			else:
-				pass
-	density = density / float((x_max - 1) * (y_max - 1))
-	
-	return density
+def remove_short_curves(length):
+	global curve_x, curve_y
+	to_remove = np.array([0])
+	for i in range(1, curve_x.shape[0]):
+		last_elem = np.max(np.nonzero(curve_x[i, :]))
+		if last_elem < length:
+			to_remove = np.append(to_remove, np.array([i]), axis = 0)
+
+	curve_x = np.delete(curve_x, to_remove, 0)
+	curve_y = np.delete(curve_y, to_remove, 0)
+
+	return curve_x, curve_y
 
 
-#for container in gwy.gwy_app_data_browser_get_containers():	
-#	data_field = container['/4/data']
-#	blured_field = container['/0/data']
-with codecs.open('mask_image_2023-11-28_14-40-11.txt', encoding='utf-8-sig') as f:
-    data_field = np.loadtxt(f)
+def save_curves(path_out_curve, num, curve_x, curve_y):
+	np.savetxt(path_out_curve + "\\curve_x_" + str(num) + ".txt", curve_x, '%d', encoding = 'utf-8-sig')
+	np.savetxt(path_out_curve + "\\curve_y_" + str(num) + ".txt", curve_y, '%d', encoding = 'utf-8-sig')
 
+
+def plot_result(curve_x, curve_y):
+	global data_field
+	data_field = data_field * 0
+	for i in range(curve_x.shape[0]):
+		j_max = np.max(np.nonzero(curve_x[i, :]))
+		for j in range(j_max + 1):
+			data_field[int(curve_y[i, j - 1]) * x_max + int(curve_x[i, j - 1])] = 1
+
+	data_field = data_field.reshape((x_max, y_max))				
+	plt.matshow(data_field)
+	plt.show()
+
+
+path_input_mask = ".\\Data\\Input\\Masks"
+path_output = ".\\Data\\Output\\Curves"
+num = 18
+
+data_field = cv2.imread(path_input_mask + "\\mask_" + str(num) + ".tiff")
+data_field = np.sum(data_field, axis = 2)
+data_field[data_field > 0] = 1
 (y_max, x_max) = data_field.shape
 data_field = data_field.ravel()
 start = np.zeros([1, 2])
 curve_x = np.zeros((1, 2000))
 curve_y = np.zeros((1, 2000))
-blured_field = copy.deepcopy(data_field)
 type_field = copy.deepcopy(data_field) # 1 - normal, 2 - start, 3 - triple, 4 cross, 5 - triple with diag neigh
 id_field = copy.deepcopy(data_field)
 rank_field = copy.deepcopy(data_field)
-curve_field = copy.deepcopy(data_field)
-orient_field = copy.deepcopy(data_field)
 id_field = 0 * id_field
-curve_field = 0 * curve_field
-orient_field = 0 * orient_field
 type_field = set_type_field(data_field)
 rank_field = set_rank_field(data_field, type_field)
 start = find_start(type_field)
@@ -315,108 +314,10 @@ stop_list = np.array([0])
 curve_id = 0
 
 
-while True:
-	if start.shape[0] == stop_list.shape[0]:
-		break
-	else:
-		for n in range(1, start.shape[0]):
-			if any(stop_list == n):
-				pass
-			else:
-				curve_id = curve_id + 1
-				last_elem = 0
-				temp_i = start[n, 0]
-				temp_j = start[n, 1]
-				temp_index = temp_i * x_max + temp_j
-				id_field[temp_index] = curve_id
-				rank_field[temp_index] = rank_field[temp_index] - 1 
-				curve_x = np.append(curve_x, np.zeros((1, 2000)), axis = 0)
-				curve_y = np.append(curve_y, np.zeros((1, 2000)), axis = 0)
-				curve_x[curve_id, last_elem] = temp_j
-				curve_y[curve_id, last_elem] = temp_i
-				if rank_field[temp_index] == 0:
-					stop_list = np.append(stop_list, ([n]), axis = 0)
-				else:
-					pass
-				
-				while True:
-					if temp_i == 0 or temp_i == y_max - 1 or temp_j == 0 or temp_j == x_max - 1:
-						break
-					else:
-					
-						(di, dj) = move(temp_i, temp_j, data_field, type_field, id_field, rank_field)
-						if (di == 0) and (dj == 0):
-							break
-						else:
-							last_elem = np.max(np.nonzero(curve_x[curve_id, :])) + 1
-							temp_i = temp_i + di
-							temp_j = temp_j + dj
-							temp_index = temp_i * x_max + temp_j
-							id_field[temp_index] = curve_id
-							rank_field[temp_index] = rank_field[temp_index] - 1 
-							curve_x[curve_id, last_elem] = temp_j
-							curve_y[curve_id, last_elem] = temp_i
-							is_end = (type_field[temp_index] == 2) or (type_field[temp_index] == 3) or (type_field[temp_index] == 4)
-							if is_end and rank_field[temp_index] == 0:
-								stop_list_value = np.where((start[:, 0] == temp_i) & (start[:, 1] == temp_j))[0]
-								stop_list = np.append(stop_list, stop_list_value, axis = 0)
-								break
-							else:
-								if is_end:
-									break
-								else:
-									pass
-
-# Calculate density
-d = density(data_field) 
-
-# Delete short curves
-to_remove = np.array([0])
-for i in range(1, curve_x.shape[0]):
-	last_elem = np.max(np.nonzero(curve_x[i, :]))
-	if last_elem < 20:
-		to_remove = np.append(to_remove, np.array([i]), axis = 0)
-
-curve_x = np.delete(curve_x, to_remove, 0)
-curve_y = np.delete(curve_y, to_remove, 0)
-
-np.savetxt('curve_x.txt', curve_x, '%d')
-np.savetxt('curve_y.txt', curve_y, '%d')
+curve_x, curve_y = track()
+curve_x, curve_y = remove_short_curves(20)
+save_curves(path_output, num, curve_x, curve_y)
+plot_result(curve_x, curve_y)
 
 
-# Find orientations
-(oriented_curve, orient_field) = find_orient(15, curve_x, curve_y, 0 , math.pi / 12, orient_field)
 
-# Measure radii of curvature
-(radii, curvat, curve_field, heights_orient, radii_orient, curvat_orient) = radius(curve_x, curve_y, 30, blured_field, curve_field, oriented_curve)
-(radii_hyst, radii_bin) = np.histogram(radii, bins=20, range = (0, 1000))
-(curvat_hyst, curvat_bin) = np.histogram(curvat, bins=20, range = (0, 0.03))
-(heights_hyst, heights_bin) = np.histogram(heights_orient, bins=20, range = (0, 30))
-
-#print(d)
-#print(curve_x.shape[0])
-#print(list(radii_hyst))
-#print(list(radii_bin))
-print(list(curvat_hyst))
-print(list(curvat_bin))
-print(list(heights_hyst))
-print(list(heights_bin))
-for i in range(heights_orient.shape[0]):
-	print (heights_orient[i], curvat_orient[i])
-
-#for i in range(y_max):			
-#	for j in range(x_max):
-#		if (i == 0) or (i == y_max - 2) or (j == x_max - 2) or (j == x_max - 2):
-#			data_field[i * x_max + j] = 0
-#		else:
-#			data_field[i * x_max + j] = curve_field[i * x_max + j]
-
-data_field = data_field * 0
-for i in range(curve_x.shape[0]):
-	j_max = np.max(np.nonzero(curve_x[i, :]))
-	for j in range(j_max + 1):
-		data_field[int(curve_y[i, j - 1]) * x_max + int(curve_x[i, j - 1])] = 1
-
-data_field = data_field.reshape((x_max, y_max))				
-plt.matshow(data_field)
-plt.show()
