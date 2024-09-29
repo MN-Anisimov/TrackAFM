@@ -3,13 +3,27 @@ import numpy as np
 import copy
 
 
-def open_tracked_oligo(filename_x, filename_y):
-    with codecs.open(filename_x, encoding='utf-8-sig') as f1:
-        olig_x = np.loadtxt(f1)
-    with codecs.open(filename_y, encoding='utf-8-sig') as f2:
-        olig_y = np.loadtxt(f2)
-    
+def open_tracked_oligo(path_inp_curve, num):
+    filename_x = path_inp_curve + "\\t_curve_x_" + str(num) + ".txt"
+    filename_y = path_inp_curve + "\\t_curve_y_" + str(num) + ".txt"
+    with codecs.open(filename_x, encoding='utf-8-sig') as f:
+        olig_x = np.loadtxt(f)
+    with codecs.open(filename_y, encoding='utf-8-sig') as f:
+        olig_y = np.loadtxt(f)
+    if len(olig_x.shape) == 1:
+        olig_x = olig_x.reshape(1, olig_x.shape[0])
+        olig_y = olig_y.reshape(1, olig_y.shape[0])
+    else:
+        pass
+
     return olig_x, olig_y
+
+
+def save_connected_oligo(path_out_curve, num, mt_curve_x, mt_curve_y):
+    filename_x = path_out_curve + "\\mt_curve_x_" + str(num) + ".txt"
+    filename_y = path_out_curve + "\\mt_curve_y_" + str(num) + ".txt"
+    np.savetxt(filename_x, mt_curve_x, '%d', encoding = 'utf-8-sig')
+    np.savetxt(filename_y, mt_curve_y, '%d', encoding = 'utf-8-sig')
 
 
 def remove_unnecessary(curve_x, curve_y, init_matchings):
@@ -114,10 +128,12 @@ def oligs_orientations(olig_x, olig_y, init_olig_x, init_olig_y, matchings):
     return orientations
 
 
-def orient_seed_oligs(matchings, orientations, olig_x, olig_y):
+def orient_seed_oligs(matchings, orientations, curve_x, curve_y):
+    olig_x = copy.deepcopy(curve_x)
+    olig_y = copy.deepcopy(curve_y)
     for i in range(olig_x.shape[0]): # orient all seeds
         end_index = np.max(np.nonzero(olig_x[i, :]))
-        if np.sum(matchings[i, :]) == 1 and np.sum(orientations[i, :]) == -1:
+        if np.sum(matchings[:, i]) == 1 and np.sum(orientations[:, i]) == 1:
              olig_x[i, 1 : np.max(np.nonzero(olig_x[i, :])) + 1] = np.flip(olig_x[i, 1 : np.max(np.nonzero(olig_x[i, :])) + 1])
              olig_y[i, 1 : np.max(np.nonzero(olig_y[i, :])) + 1] = np.flip(olig_y[i, 1 : np.max(np.nonzero(olig_y[i, :])) + 1])        
         else:
@@ -146,8 +162,7 @@ def merge_oligs(matchings, orientations, olig_x, olig_y, init_olig_x, init_olig_
                                 if orientations[i, j] == 1:
                                     olig_x[i, last_x_i : last_x_i + last_x_j] = init_olig_x[j, 1 : last_x_j + 1]
                                     olig_y[i, last_y_i : last_y_i + last_y_j] = init_olig_y[j, 1 : last_y_j + 1]
-                                else:
-                                    print(np.flip(olig_x[j, 1 : last_x_j + 1]))
+                                else :
                                     olig_x[i, last_x_i : last_x_i + last_x_j] = np.flip(init_olig_x[j, 1 : last_x_j + 1])
                                     olig_y[i, last_y_i : last_y_i + last_y_j] = np.flip(init_olig_y[j, 1 : last_y_j + 1])
 
@@ -164,7 +179,10 @@ def merge_oligs(matchings, orientations, olig_x, olig_y, init_olig_x, init_olig_
     return olig_x, olig_y
 
 
-curves_x, curves_y = open_tracked_oligo('curve_x.txt', 'curve_y.txt')
+path_inp_curve = ".\\Data\\Output\\Curves" 
+path_out_curve = ".\\Data\\Output\\Merged_curves"
+num = 13
+curves_x, curves_y = open_tracked_oligo(path_inp_curve, num)
 
 matchings = oligs_to_match(curves_x, curves_y, curves_x, curves_y)
 orientations = oligs_orientations(curves_x, curves_y, curves_x, curves_y, matchings)
@@ -173,11 +191,10 @@ olig_x, olig_y = orient_seed_oligs(matchings, orientations, curves_x, curves_y)
 init_matchings = copy.deepcopy(matchings)
 init_olig_x, init_olig_y = copy.deepcopy(olig_x), copy.deepcopy(olig_y) 
 
-matchings = oligs_to_match(curves_x, curves_y, init_olig_x, init_olig_y)
-orientations = oligs_orientations(curves_x, curves_y, init_olig_x, init_olig_y, matchings)
+matchings = oligs_to_match(olig_x, olig_y, init_olig_x, init_olig_y)
+orientations = oligs_orientations(olig_x, olig_y, init_olig_x, init_olig_y, matchings)
 mt_curve_x, mt_curve_y = merge_oligs(matchings, orientations, olig_x, olig_y, init_olig_x, init_olig_y)
 mt_curve_x, mt_curve_y = remove_unnecessary(mt_curve_x, mt_curve_y, init_matchings)
 
-np.savetxt("mt_curve_x.txt", mt_curve_x, '%d', encoding = 'utf-8-sig')
-np.savetxt("mt_curve_y.txt", mt_curve_y, '%d', encoding = 'utf-8-sig')
+save_connected_oligo(path_out_curve, num, mt_curve_x, mt_curve_y)
 
