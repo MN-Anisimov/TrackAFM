@@ -43,18 +43,16 @@ for container in gwy.gwy_app_data_browser_get_containers():
 # Mask extraction	
 settings['/module/grain_edge/combine'] = False
 settings['/module/grain_edge/combine_type'] = 0
-settings['/module/grain_edge/threshold_laplacian'] = 0.55
+settings['/module/grain_edge/threshold_laplacian'] = 0.60
 settings['/module/grain_edge/update'] = True
+
 gwy.gwy_process_func_run('grain_edge', container, gwy.RUN_IMMEDIATE)
 gwy.gwy_process_func_run('mask_thin', container, gwy.RUN_IMMEDIATE)
 gwy.gwy_process_func_run('mask_extract', container, gwy.RUN_IMMEDIATE)
-path_image = "C:\Users\Amih1\Documents\Work\PythonApplication1\PythonApplication1\Data\Input\Raw_images"
-path_mask = "C:\Users\Amih1\Documents\Work\PythonApplication1\PythonApplication1\Data\Input\Masks"
+path_image = "C:\\Users\Amih1\\Documents\\Work\\PythonApplication1\\PythonApplication1\\Data\\Input\\Raw_images"
+path_mask = "C:\\Users\Amih1\\Documents\\Work\\PythonApplication1\\PythonApplication1\\Data\\Input\\Masks"
+num = 8
 gwy.gwy_app_data_browser_select_data_field(container, 0)
-gwy.gwy_file_save(container, path_image + "\image_1.tiff", gwy.RUN_NONINTERACTIVE)
+gwy.gwy_file_save(container, path_image + "\\image_" + str(num) + ".txt", gwy.RUN_NONINTERACTIVE)
 gwy.gwy_app_data_browser_select_data_field(container, 4)
-gwy.gwy_file_save(container, path_mask + "\mask_1.tiff", gwy.RUN_NONINTERACTIVE)
-
-
-
-
+gwy.gwy_file_save(container, path_mask + "\\mask_" + str(num) + ".tiff", gwy.RUN_NONINTERACTIVE)

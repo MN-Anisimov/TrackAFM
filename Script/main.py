@@ -14,17 +14,17 @@ def is_start(i, j, type_field):
 		return i, j
 
 	
-def what_type(i, j, data_field):
+def what_type(i, j, mask_field):
 	lstep = i * x_max + j - 1
 	rstep = i * x_max + j + 1
 	bstep = (i + 1) * x_max + j
 	tstep = (i - 1) * x_max + j
 	current = i * x_max + j
-	cvalue = data_field[current]
-	lvalue = data_field[lstep]
-	rvalue = data_field[rstep]
-	bvalue = data_field[bstep]
-	tvalue = data_field[tstep]
+	cvalue = mask_field[current]
+	lvalue = mask_field[lstep]
+	rvalue = mask_field[rstep]
+	bvalue = mask_field[bstep]
+	tvalue = mask_field[tstep]
 	if lvalue != 0:
 		lvalue = 1
 	if rvalue != 0:
@@ -44,17 +44,17 @@ def what_type(i, j, data_field):
 		return float(4)
 		
 		
-def what_rank(i, j, data_field):
+def what_rank(i, j, mask_field):
 	lstep = i * x_max + j - 1
 	rstep = i * x_max + j + 1
 	bstep = (i + 1) * x_max + j
 	tstep = (i - 1) * x_max + j
 	current = i * x_max + j
-	cvalue = data_field[current]
-	lvalue = data_field[lstep]
-	rvalue = data_field[rstep]
-	bvalue = data_field[bstep]
-	tvalue = data_field[tstep]
+	cvalue = mask_field[current]
+	lvalue = mask_field[lstep]
+	rvalue = mask_field[rstep]
+	bvalue = mask_field[bstep]
+	tvalue = mask_field[tstep]
 	if lvalue != 0:
 		lvalue = 1
 	if rvalue != 0:
@@ -129,29 +129,31 @@ def find_start(type_field):
 			if is_start(i, j, type_field) != None:
 				(start_y, start_x) = is_start(i, j, type_field)
 				start = np.append(start, np.array([[start_y, start_x]]), axis = 0)
+
 	return start
 
 
-def set_type_field(data_field):	
-	type_field = copy.deepcopy(data_field)
+def set_type_field(mask_field):	
+	type_field = copy.deepcopy(mask_field)
 	for i in range(1, y_max - 1):
 		for j in range(1, x_max - 1):
-			if what_type(i, j, data_field) != None:
-				type_field[i * x_max + j] = what_type(i, j, data_field)
+			if what_type(i, j, mask_field) != None:
+				type_field[i * x_max + j] = what_type(i, j, mask_field)
 				
 	for i in range(1, y_max - 1):
 		for j in range(1, x_max - 1):
 			if find_triple_diag(i, j, type_field) != None:
 				type_field[i * x_max + j] = find_triple_diag(i, j, type_field)
+
 	return type_field
 	
 	
-def set_rank_field(data_field, type_field):	
-	rank_field = copy.deepcopy(data_field)
+def set_rank_field(mask_field, type_field):	
+	rank_field = copy.deepcopy(mask_field)
 	for i in range(1, y_max - 1):
 		for j in range(1, x_max - 1):
-			if what_rank(i, j, data_field) != None:
-				rank_field[i * x_max + j] = what_rank(i, j, data_field)
+			if what_rank(i, j, mask_field) != None:
+				rank_field[i * x_max + j] = what_rank(i, j, mask_field)
 				
 	for i in range(1, y_max - 1):
 		for j in range(1, x_max - 1):
@@ -161,7 +163,7 @@ def set_rank_field(data_field, type_field):
 	return rank_field
 
 
-def move(i, j, data_field, type_field, id_field, rank_field):
+def move(i, j, type_field, id_field, rank_field):
 	di = 0
 	dj = 0
 	for ii in range(3):
@@ -200,11 +202,21 @@ def move(i, j, data_field, type_field, id_field, rank_field):
 	return 0, 0				
 		
 
-def track():
+def track(mode):
+	global start
 	global stop_list
 	global curve_id
 	global curve_x, curve_y
-	global data_field, type_field, id_field, rank_field
+	global mask_field, type_field, id_field, rank_field
+	curve_x = np.zeros((1, 2000))
+	curve_y = np.zeros((1, 2000))
+	id_field = 0 * id_field
+	type_field = set_type_field(mask_field)
+	rank_field = set_rank_field(mask_field, type_field)
+	start = find_start(type_field)
+	stop_list = np.array([0])
+	curve_id = 0
+
 	while True:
 		if start.shape[0] == stop_list.shape[0]:
 			break
@@ -213,7 +225,7 @@ def track():
 				if any(stop_list == n):
 					pass
 				else:
-					curve_id = curve_id + 1
+					curve_id += 1
 					last_elem = 0
 					temp_i = start[n, 0]
 					temp_j = start[n, 1]
@@ -233,7 +245,7 @@ def track():
 						if temp_i == 0 or temp_i == y_max - 1 or temp_j == 0 or temp_j == x_max - 1:
 							break
 						else:	
-							(di, dj) = move(temp_i, temp_j, data_field, type_field, id_field, rank_field)
+							(di, dj) = move(temp_i, temp_j, type_field, id_field, rank_field)
 							if (di == 0) and (dj == 0):
 								break
 							else:
@@ -256,21 +268,79 @@ def track():
 										break
 									else:
 										pass
+
+					if mode == 2:
+						# dublicate curves with at least one branching pix at the ends
+						index_left = int(curve_y[curve_id, 0]) * x_max + int(curve_x[curve_id, 0])			
+						index_right = int(curve_y[curve_id, last_elem]) * x_max + int(curve_x[curve_id, last_elem])
+						if (type_field[index_left] == 3) or (type_field[index_right] == 3):
+							curve_x = np.insert(curve_x, curve_id, curve_x[curve_id, :], axis = 0)
+							curve_y = np.insert(curve_y, curve_id, curve_y[curve_id, :], axis = 0)
+							curve_id += 1
+						else:
+							pass
+					else:
+						pass
+									
+	curve_x = np.delete(curve_x, np.array([0]), 0)
+	curve_y = np.delete(curve_y, np.array([0]), 0)
+
 	return curve_x, curve_y							
 				
 
-def remove_short_curves(length):
+def remove_bad_curves(height):
 	global curve_x, curve_y
-	to_remove = np.array([0])
+	global height_field
+	to_remove = np.array([])
 	for i in range(1, curve_x.shape[0]):
-		last_elem = np.max(np.nonzero(curve_x[i, :]))
-		if last_elem < length:
+		av_height = 0
+		j_max = np.max(np.nonzero(curve_x[i, :]))
+		for j in range(j_max + 1):
+			av_height = av_height + height_field[int(curve_y[i, j - 1]) * x_max + int(curve_x[i, j - 1])] 
+		av_height = av_height / (j_max + 1)
+		if av_height < height:
 			to_remove = np.append(to_remove, np.array([i]), axis = 0)
+		else:
+			pass
 
+	to_remove = np.array(to_remove, dtype = np.int64)
 	curve_x = np.delete(curve_x, to_remove, 0)
 	curve_y = np.delete(curve_y, to_remove, 0)
 
 	return curve_x, curve_y
+
+
+def update_mask(curves_x, curves_y):
+	global mask_field
+	mask_field = mask_field * 0
+	for i in range(curve_x.shape[0]):
+		j_max = np.max(np.nonzero(curve_x[i, :]))
+		for j in range(j_max + 1):
+			mask_field[int(curve_y[i, j]) * x_max + int(curve_x[i, j])] = 1
+
+	return mask_field
+
+
+def track_and_update(height):
+	global curves_x, curves_y
+	curve_x, curve_y = track(1)
+	curve_x, curve_y = remove_bad_curves(height)
+	update_mask(curve_x, curve_y)
+	curve_x, curve_y = track(2)
+
+
+def open_mask_im(path_im, path_mask, num):
+	with codecs.open(path_im + "\\image_" + str(num) + ".txt", encoding='utf-8-sig') as f:
+		im = np.loadtxt(f)
+	im = im.ravel()
+
+	field = cv2.imread(path_mask + "\\mask_" + str(num) + ".tiff")
+	field = np.sum(field, axis = 2)
+	field[field > 0] = 1
+	(y_max, x_max) = field.shape
+	field = field.ravel()
+
+	return field, im, y_max, x_max
 
 
 def save_curves(path_out_curve, num, curve_x, curve_y):
@@ -278,46 +348,28 @@ def save_curves(path_out_curve, num, curve_x, curve_y):
 	np.savetxt(path_out_curve + "\\curve_y_" + str(num) + ".txt", curve_y, '%d', encoding = 'utf-8-sig')
 
 
-def plot_result(curve_x, curve_y):
-	global data_field
-	data_field = data_field * 0
-	for i in range(curve_x.shape[0]):
-		j_max = np.max(np.nonzero(curve_x[i, :]))
-		for j in range(j_max + 1):
-			data_field[int(curve_y[i, j - 1]) * x_max + int(curve_x[i, j - 1])] = 1
-
-	data_field = data_field.reshape((x_max, y_max))				
-	plt.matshow(data_field)
+def show_mask():
+	global mask_field				
+	plt.matshow(mask_field.reshape((x_max, y_max)))
 	plt.show()
 
 
 path_input_mask = ".\\Data\\Input\\Masks"
+path_input_im = ".\\Data\\Input\\Raw_images"
 path_output = ".\\Data\\Output\\Curves"
-num = 18
+num = 8
 
-data_field = cv2.imread(path_input_mask + "\\mask_" + str(num) + ".tiff")
-data_field = np.sum(data_field, axis = 2)
-data_field[data_field > 0] = 1
-(y_max, x_max) = data_field.shape
-data_field = data_field.ravel()
+mask_field, height_field, y_max, x_max = open_mask_im(path_input_im, path_input_mask, num)
 start = np.zeros([1, 2])
 curve_x = np.zeros((1, 2000))
 curve_y = np.zeros((1, 2000))
-type_field = copy.deepcopy(data_field) # 1 - normal, 2 - start, 3 - triple, 4 cross, 5 - triple with diag neigh
-id_field = copy.deepcopy(data_field)
-rank_field = copy.deepcopy(data_field)
-id_field = 0 * id_field
-type_field = set_type_field(data_field)
-rank_field = set_rank_field(data_field, type_field)
-start = find_start(type_field)
-stop_list = np.array([0])
-curve_id = 0
+type_field = copy.deepcopy(mask_field) # 1 - normal, 2 - start, 3 - triple, 4 cross, 5 - triple with diag neigh
+id_field = copy.deepcopy(mask_field)
+rank_field = copy.deepcopy(mask_field)
 
-
-curve_x, curve_y = track()
-curve_x, curve_y = remove_short_curves(20)
+track_and_update(4e-9)
 save_curves(path_output, num, curve_x, curve_y)
-plot_result(curve_x, curve_y)
-
+show_mask()
+curve_x
 
 
