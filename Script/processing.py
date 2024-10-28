@@ -22,7 +22,7 @@ def open_curves(path, num):
 
 
 def open_im(path, num):
-	with codecs.open(path_input_im + "\\image_" + str(num) + ".txt", encoding='utf-8-sig') as f:
+	with codecs.open(path + "\\image_" + str(num) + ".txt", encoding='utf-8-sig') as f:
 		field = np.loadtxt(f)
 	field = field.ravel()
 
@@ -57,7 +57,7 @@ def find_orient(length, curve_x, curve_y, min_angle, max_angle, orient_field_arg
 					else:
 						alpha = math.acos((x*0 + y*1) / (sqrt(x*x + y*y)))
 				for jj in range(length):
-					if (abs(alpha) >= min_angle and abs(alpha) <= max_angle) or (abs(alpha) >= math.pi - max_angle and abs(alpha) <= math.pi - min_angle):
+					if (abs(alpha) >= min_angle and abs(alpha) <= max_angle) or (abs(alpha) >= math.pi and abs(alpha) <= math.pi + min_angle):
 						oriented_curve[i, j - length + jj + 1] = alpha
 						orient_field[int(curve_y[i, j - length + jj + 1]) * x_max + int(curve_x[i, j - length + jj + 1])] = 1
 			else:
@@ -175,6 +175,7 @@ curve_field = 0 * curve_field
 
 
 heights = heights_0_pi(curve_x, curve_y, 12)
+save_plot(path_output_plots, "heights_", num, heights[:, 0], heights[:, 1])
 plt.xlabel('Angle, rad')
 plt.ylabel('Average heights, nm')
 plt.errorbar(heights[:, 0], heights[:, 1], yerr = heights[:, 2], linestyle='None', marker='o')

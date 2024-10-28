@@ -300,8 +300,7 @@ def remove_bad_curves(height):
 		av_height = av_height / (j_max + 1)
 		if av_height < height:
 			to_remove = np.append(to_remove, np.array([i]), axis = 0)
-		else:
-			pass
+		else: pass
 
 	to_remove = np.array(to_remove, dtype = np.int64)
 	curve_x = np.delete(curve_x, to_remove, 0)
@@ -357,7 +356,7 @@ def show_mask():
 path_input_mask = ".\\Data\\Input\\Masks"
 path_input_im = ".\\Data\\Input\\Raw_images"
 path_output = ".\\Data\\Output\\Curves"
-num = 8
+num = 12
 
 mask_field, height_field, y_max, x_max = open_mask_im(path_input_im, path_input_mask, num)
 start = np.zeros([1, 2])
@@ -367,7 +366,7 @@ type_field = copy.deepcopy(mask_field) # 1 - normal, 2 - start, 3 - triple, 4 cr
 id_field = copy.deepcopy(mask_field)
 rank_field = copy.deepcopy(mask_field)
 
-track_and_update(4e-9)
+track_and_update(2e-9)
 save_curves(path_output, num, curve_x, curve_y)
 show_mask()
 curve_x
